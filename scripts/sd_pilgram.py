@@ -15,7 +15,6 @@ from PIL import Image, ImageFilter, ImageEnhance
 class Script(scripts.Script):
 
     PILGRAM_FILTERS = [
-        'All',
         '1977',
         'Aden',
         'Brannan',
@@ -55,44 +54,43 @@ class Script(scripts.Script):
             with gr.Row():
                 dropdown_active_filter = gr.Dropdown(
                     label="Filter", 
-                    choices=Script.PILGRAM_FILTERS, 
+                    choices=["All", *Script.PILGRAM_FILTERS], 
                     value="None", 
                     elem_id=self.elem_id("fk_pilgram_active_filter")
                 )
 
         return [dropdown_active_filter]
+    
+    def __get_selected_pilgrim_filter(self, dropdown_active_filter):
+        filter_func = dropdown_active_filter.lower()
+
+        if filter_func is None or filter_func == "none":
+            return None
+
+        if filter_func == 'all':
+            return Script.PILGRAM_FILTERS
+        else:
+            return [filter_func]
+    
+    def __get_pilgrim_func(self, f_name):
+        if f_name == "1977":
+            return getattr(pilgram, "_1977")
+        else:
+            return getattr(pilgram, f_name.lower())
+        
+    def __get_html_for_filter(self, name):
+        pass
 
     def run(self, p, dropdown_active_filter):
         processed = processing.process_images(p)
         processed_images_length = len(processed.images)
-
-        def do_filter(working_image, target_filter_func):
-            working_image = target_filter_func(working_image)
-            return working_image
-
-        filter_func = None
-        if dropdown_active_filter == '1977':
-            filter_func = '_1977'
-
-        else:
-            filter_func = dropdown_active_filter.lower()
-
-        if filter_func is None:
-            return processed
-
-        if filter_func == 'all':
-            target_func = Script.PILGRAM_FILTERS[1:]
-        else:
-            target_func = [filter_func]
-
-        for filter_func_name in target_func:
-            if filter_func_name == "1977":
-                f = getattr(pilgram, "_1977")
-            else:
-                f = getattr(pilgram, filter_func_name.lower())
+        
+        target_filter_func = self.__get_selected_pilgrim_filter(dropdown_active_filter)
+        for filter_func_name in target_filter_func:
+            filter_func = self.__get_pilgrim_func(filter_func_name)
 
             for i in range(processed_images_length):
-                working_image = do_filter(working_image=processed.images[i], target_filter_func=f)
+                working_image = filter_func(processed.images[i])
                 working_image_info = f"{processed.info}, Pilgram Filter: {filter_func_name}"
 
                 images.save_image(
